@@ -123,11 +123,68 @@ The Fibonacci sequence could be rewritten to use an iterative process:
 
 While the linear recursive process is exponential in its growth, it is easier to understand. One can observe that a recursive process could be recast as an iterative one with three state variables.
 
+## 1.2.3 Orders of Growth
+
+Processes differ considerably in the rates at which they consume computational resources. An *order of growth* can be used to obtain a gross measure of the resources required by a process as the inputs become larger.
+
+$n$ = the size of the problem.
+
+$R(n)$ = the amount of resources the process requires for a problem of size $n$.
+
+$R(n) = \Theta(f(n))$` if there are positive constants $k^1$ and $k^2$ independent of $n$ such that:
+
+$k1 f(n) \leq R(n) \leq k2 f(n)$
+
+*$\Theta(f(n))$ is pronounced "theta of $f(n)$"*
+
+Some common orders of growth:
+
+$\Theta(n)$ grows linearly.
+
+$\Theta(1)$ is constant.
+
+$\Theta(n^2)$ is quadratic.
+
+$\Theta(log\ n)$ is logarithmic.
+
+## 1.2.4 Exponentiation
+
+A *linear recursive process* requires $\Theta(n)$ steps and $\Theta(n)$ space.
+
+A *linear iterative process* requires $\Theta(n)$ steps and $\Theta(1)$ space.
+
+However, there are equations like exponentiation where we do not have to proceed incrementally but can instead compute it using a combination of specific calculations.
+
+Let's say we want to solve $b^8$
+
+Rather than:
+
+$b \cdot (b \cdot (b \cdot (b \cdot (b \cdot (b \cdot (b \cdot b))))))$
+
+We could:
+
+$b^2 = b \cdot b$
+
+$b^4 = b^2 \cdot b^2$
+
+$b^8 = b^4 \cdot b^4$
+
+This can be expressed as:
+
+```scheme
+(define (fast-expt b n)
+  cond ((= n 0) 1)
+       ((even? n) (square (fast-expt b (/ n 2))))
+       (else (* b (fast-expt b (- n 1)))))
+```
+
+This would require $\Theta(log\ n)$ steps and $\Theta(log\ n)$ space.
+
 ## Exercises
 
 ### Exercise 1.9
 
-Depict and describe the procedures and their corresponding processes.
+*Depict and describe the procedures and their corresponding processes.*
 
 Procedure A is a recursive procedure in that it invokes itself.
 
@@ -180,7 +237,7 @@ Process B is a linear iterative process. While it invokes itself, it is deferrin
 
 ### Exercise 1.10
 
-The following procedure computes a mathematical function called Ackermann's function.
+*The following procedure computes a mathematical function called Ackermann's function.*
 
 ```scheme
 (define (A x y)
@@ -191,7 +248,7 @@ The following procedure computes a mathematical function called Ackermann's func
                  (A x (- y 1))))))
 ```
 
-What are the values of the following expressions:
+*What are the values of the following expressions:*
 
 ```scheme
 (A 1 10)
@@ -200,3 +257,63 @@ What are the values of the following expressions:
 ```
 
 Each of these will be a linear recursive process, as the `y` param will defer evaluation of `x` until `y = 1` at which point `x` will evaluate and, if not 0, prompt another chain of deferred evaluations of itself as `y` is invoked again until 1.
+
+<!-- livebook:{"break_markdown":true} -->
+
+### Exercise 1.17
+
+*Devise a logarithmic alternative to this linear recursive procedure using `double` and `halve` procedures:*
+
+```scheme
+(define (* a b)
+  (if (= b 0)
+      0
+      (+ a (* a (- b 1)))))
+```
+
+```elixir
+defmodule MultiplyLogarithmic do
+  require Integer
+
+  defp double(a) do
+    a * 2
+  end
+
+  defp halve(a) do
+    div(a, 2)
+  end
+
+  def mult_log(a, b) when is_integer(a) and is_integer(b) do
+    IO.puts("Step: (" <> to_string(a) <> ", " <> to_string(b) <> ")")
+
+    cond do
+      b == 0 -> 0
+      Integer.is_even(b) -> mult_log(double(a), halve(b))
+      true -> a + mult_log(a, b - 1)
+    end
+
+    #  (cond ((= b 0)
+    #      0)
+    #     ((even? b)
+    #      (fast-mult (double a) (halve b)))
+    #     (else
+    #      (+ a (fast-mult a (- b 1))))))
+  end
+
+  def mult_lin(a, b) when is_integer(a) and is_integer(b) do
+    IO.puts("Step: (" <> to_string(a) <> ", " <> to_string(b) <> ")")
+
+    cond do
+      b == 0 -> 0
+      true -> a + mult_lin(a, b - 1)
+    end
+  end
+end
+```
+
+```elixir
+IO.puts("Linear Multiplication")
+MultiplyLogarithmic.mult_lin(12, 14)
+IO.puts("Logarithmic Multiplication")
+MultiplyLogarithmic.mult_log(12, 14)
+```
