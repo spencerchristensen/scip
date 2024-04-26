@@ -25,8 +25,8 @@ We must not confuse the notion of *process* with the notion of a *procedure*. Le
 ```scheme
 (define (factorial n)
   (if (= n 1)
-	  1
-	  (* n (factorial (- n 1)))))
+        1
+        (* n (factorial (- n 1)))))
 ```
 
 *a linear recursive process*
@@ -48,19 +48,18 @@ We must not confuse the notion of *process* with the notion of a *procedure*. Le
 
 **Iterative Process**: a process in which the state is maintained according to a fixed set of *state variables*, logic for how the state is updated, and an optional end test that dictates when the process should terminate.
 
-*an recursive procedure*
+*a recursive procedure*
 
 ```scheme
 (define (factorial n)
   (fact-iter 1 1 n))
 
 (define (fact-iter product counter max-count)
-	(if (> counter max-count)
+        (if (> counter max-count)
     product
     (fact-iter (* counter product)
                (+ counter 1)
                max-count)))
-
 ```
 
 *a linear iterative process*
@@ -94,8 +93,6 @@ Consider the following procedure:
         (else (+ (fib (- n 1))
                  (fib (- n 2))))))
 ```
-
-<!-- livebook:{"break_markdown":true} -->
 
 Let us observe what happens when we call `(fib 5)`
 
@@ -131,11 +128,11 @@ $n$ = the size of the problem.
 
 $R(n)$ = the amount of resources the process requires for a problem of size $n$.
 
-$R(n) = \Theta(f(n))$` if there are positive constants $k^1$ and $k^2$ independent of $n$ such that:
+$R(n) = \Theta(f(n))$ if there are positive constants $k^1$ and $k^2$ independent of $n$ such that:
 
 $k1 f(n) \leq R(n) \leq k2 f(n)$
 
-*$\Theta(f(n))$ is pronounced "theta of $f(n)$"*
+($\Theta(f(n))$ is pronounced "theta of $f(n)$")
 
 Some common orders of growth:
 
@@ -197,7 +194,7 @@ Procedure A is a recursive procedure in that it invokes itself.
 
 Process A is a linear recursive process. You will note that `inc` evaluations are chained together until the conditional is fulfulled.
 
-```
+```scheme
 (+ 5 5)
 (inc ( + 4 5 ))
 (inc ( inc ( + 3 5)))
@@ -223,7 +220,7 @@ Procedure B is a recursive procedure in that it invokes itself.
 
 Process B is a linear iterative process. While it invokes itself, it is deferring no evaluation and is instead tracking a variable state through the iterations.
 
-```
+```scheme
 (+ 5 5)
 (+ 4 6)
 (+ 3 7)
@@ -272,48 +269,85 @@ Each of these will be a linear recursive process, as the `y` param will defer ev
 ```
 
 ```elixir
-defmodule MultiplyLogarithmic do
-  require Integer
+defmodule MultiplyRecursive do
+  defp print_step(a, b), do: IO.puts("Step: (" <> to_string(a) <> ", " <> to_string(b) <> ")")
 
-  defp double(a) do
-    a * 2
+  defp double(n), do: n * 2
+
+  defp halve(n), do: div(n, 2)
+
+  def mult_log(a, b) when b == 0 do
+    print_step(a, b)
+    0
   end
 
-  defp halve(a) do
-    div(a, 2)
+  def mult_log(a, b) when rem(b, 2) == 0 do
+    print_step(a, b)
+    mult_log(double(a), halve(b))
   end
 
-  def mult_log(a, b) when is_integer(a) and is_integer(b) do
-    IO.puts("Step: (" <> to_string(a) <> ", " <> to_string(b) <> ")")
-
-    cond do
-      b == 0 -> 0
-      Integer.is_even(b) -> mult_log(double(a), halve(b))
-      true -> a + mult_log(a, b - 1)
-    end
-
-    #  (cond ((= b 0)
-    #      0)
-    #     ((even? b)
-    #      (fast-mult (double a) (halve b)))
-    #     (else
-    #      (+ a (fast-mult a (- b 1))))))
+  def mult_log(a, b) do
+    print_step(a, b)
+    a + mult_log(a, b - 1)
   end
 
-  def mult_lin(a, b) when is_integer(a) and is_integer(b) do
-    IO.puts("Step: (" <> to_string(a) <> ", " <> to_string(b) <> ")")
+  def mult_lin(a, b) when b == 0 do
+    print_step(a, b)
+    0
+  end
 
-    cond do
-      b == 0 -> 0
-      true -> a + mult_lin(a, b - 1)
-    end
+  def mult_lin(a, b) do
+    print_step(a, b)
+    a + mult_lin(a, b - 1)
   end
 end
 ```
 
 ```elixir
 IO.puts("Linear Multiplication")
-MultiplyLogarithmic.mult_lin(12, 14)
+MultiplyRecursive.mult_lin(12, 14)
+```
+
+```elixir
 IO.puts("Logarithmic Multiplication")
-MultiplyLogarithmic.mult_log(12, 14)
+MultiplyRecursive.mult_log(12, 14)
+```
+
+### Exercise 1.18
+
+*Make an iterative version of the logarithmic multiply procedure.*
+
+```elixir
+defmodule MultIterLogarithmic do
+  defp print_step(a, b, acc),
+    do:
+      IO.puts("Step: (" <> to_string(a) <> ", " <> to_string(b) <> ", " <> to_string(acc) <> ")")
+
+  defp double(n), do: n * 2
+  defp halve(n), do: div(n, 2)
+
+  def mult_iter(a, b) do
+    mult_iter_loop(a, b, 0)
+  end
+
+  defp mult_iter_loop(a, 0, acc) do
+    print_step(a, 0, acc)
+    acc
+  end
+
+  defp mult_iter_loop(a, b, acc) when rem(b, 2) == 0 do
+    print_step(a, b, acc)
+    mult_iter_loop(double(a), halve(b), acc)
+  end
+
+  defp mult_iter_loop(a, b, acc) do
+    print_step(a, b, acc)
+    mult_iter_loop(a, b - 1, acc + a)
+  end
+end
+```
+
+```elixir
+IO.puts("Iterative Logarithmic")
+MultIterLogarithmic.mult_iter(12, 14)
 ```
