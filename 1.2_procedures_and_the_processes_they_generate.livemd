@@ -177,6 +177,10 @@ This can be expressed as:
 
 This would require $\Theta(log\ n)$ steps and $\Theta(log\ n)$ space.
 
+## 1.2.6 (skipping 5): Probabilistic Method
+
+There is a class of algorithms that while correctness is not guaranteed, the chance of error becomes arbitrarily small and thus allows the confident use of them. These are *probabilistic algorithms*.
+
 ## Exercises
 
 ### Exercise 1.9
