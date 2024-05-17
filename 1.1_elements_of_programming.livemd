@@ -241,6 +241,10 @@ This contrast is a reflection of describing the properties of things vs. how to 
 * **Imperative**: how to?
 * **Declarative**: what is?
 
+Mathematics is often concerned with declarative descriptions.
+
+Computer science is usually concerned with imperative descriptions.
+
 ## 1.1.8 Procedures as Black-Box Abstractions
 
 A computation can be broken down into several subproblems. Each of these tasks is achieved by a different procedure.
