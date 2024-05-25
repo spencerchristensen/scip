@@ -1,0 +1,182 @@
+# SCIP 2.2 Hierarchical Data and the Closure Property
+
+```elixir
+Mix.install([])
+```
+
+## 2.2 Hierarchical Data and the Closure Property
+
+Pairs provide a primitive "glue" that we can use to construct compound data structures. We can visualize this using *box-and-pointer notation*.
+
+<!-- livebook:{"break_markdown":true} -->
+
+<!-- Learn more at https://mermaid-js.github.io/mermaid -->
+
+```mermaid
+graph TD;
+  pair_a-->pair_b;
+  pair_a-->1;
+  pair_b-->pair_c;
+  pair_b-->2;
+  pair_c-->3
+  pair_c-->4
+```
+
+However we will note that pairs can not just contain primitives like numbers or strings, but also other pairs. This allows us to build up complex data structures from simple parts. The ability to create pairs whose elements are pairs is the essence of the list structure's importance as a representational tool and is referred to as the *closure property*.
+
+**Closure Property**: an operation that combines data objects if the result of the combination can themselves be combined using the same operation.
+
+## 2.2.1 Representing Sequences
+
+One of the useful structures we can build with pairs is a *sequence*.
+
+**Sequence**: an ordered collection of data objects.
+
+A straightforward representation could be:
+
+```scheme
+(cons 1
+  (cons 2 
+    (cons 3
+      cons 4 nil)))
+```
+
+A sequce of pairs, formed by nested `cons` calls, is called a *list*.
+
+**List**: a sequence of pairs.
+
+Scheme provides a primitive for constructing lists, where the above could be represented as:
+
+```scheme
+(list 1 2 3 4)
+```
+
+The above would print to  `(1 2 3 4)`, but note that this is a convenience and is not representative of the actual data structure.
+
+Since a list is a list of pairs, many list operations can be programmed as a recursive procedures:
+
+```scheme
+(define (list-ref items n)
+  (if (= n 0)
+    (car items)
+    (list-ref (cdr items) (- n 1))))
+
+(define (length items)
+  (if (null? items)
+    0
+    (+ 1 (length (cdr items)))))
+```
+
+Another common technique is to "`cons` up" an answer list while `cdr`ing down a list:
+
+```scheme
+(define (append list1 list2)
+  if (null? list1)
+    list 2
+    (cons (car list1) (append (cdr list1) list2)))
+```
+
+which would result the following execution:
+
+```scheme
+(append (list 1 2 3) (list 4 5 6))
+  (cons (car (list 1 2 3)) (append (cdr (list 1 2 3)) (list 4 5 6)))
+    (cons 1 (append (cdr (list 1 2 3)) (list 4 5 6)))
+      (cons 1 (append (list 2 3) (list 4 5 6)))
+        (cons (car (list 2 3)) (append (cdr (list 2 3)) (list 4 5 6)))
+          (cons 2 (append (cdr (list 2 3)) (list 4 5 6)))
+            (cons 2 (append (list 3) (list 4 5 6)))
+              (cons (car (list 3)) (append (cdr (list 3)) (list 4 5 6)))
+                (cons 3 (append (cdr (list 3)) (list 4 5 6)))
+                  (cons 3 (append () (list 4 5 6)))
+                    (cons 3 (list 4 5 6))
+                  (3 4 5 6)
+                (cons 2 (3 4 5 6))
+              (2 3 4 5 6)
+            (cons 1 (2 3 4 5 6))
+          (1 2 3 4 5 6)
+
+```
+
+## Exercises
+
+### Exercise 2.17
+
+> Define a procedure `last-pair` that returns the list that contains only the last element of a given (nonempty) list:
+> `(last-paid (list 23 72 149 34))`
+> 
+> *(34)*
+
+<!-- livebook:{"break_markdown":true} -->
+
+Lambda solution:
+
+```elixir
+last_pair = fn list, f ->
+  [head | tail] = list
+
+  case tail do
+    [] -> head
+    _ -> f.(tail, f)
+  end
+end
+
+last_pair.([23, 72, 149, 34], last_pair)
+```
+
+Module solution:
+
+```elixir
+defmodule LastPair do
+  def last_pair([head | []]) do
+    head
+  end
+
+  def last_pair([_ | tail]) do
+    last_pair(tail)
+  end
+end
+
+LastPair.last_pair([23, 72, 149, 34])
+```
+
+### Exercise 2.18
+
+> Define a procedure `reverse` that takes a list as argument and returns a list of the same elements in reverse order.
+
+<!-- livebook:{"break_markdown":true} -->
+
+Lambda solution:
+
+```elixir
+reverse = fn list, f ->
+  [head | tail] = list
+
+  case tail do
+    [] -> [head]
+    _ -> f.(tail, f) ++ [head]
+  end
+end
+
+reverse.([1, 2, 3, 4, 5], reverse)
+```
+
+Module solution:
+
+```elixir
+defmodule Reverse do
+  def reverse([head | []]) do
+    [head]
+  end
+
+  def reverse([head | tail]) do
+    reverse(tail) ++ [head]
+  end
+end
+
+Reverse.reverse([1, 2, 3, 4, 5])
+```
+
+### Exercise 2.20
+
+> Use dot notation to write a procedure `same-parity` that takes one or more integers and returns a list of all the arguments that have the same even-odd parity as the first argument.
