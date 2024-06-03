@@ -53,7 +53,7 @@ Scheme provides a primitive for constructing lists, where the above could be rep
 
 The above would print to  `(1 2 3 4)`, but note that this is a convenience and is not representative of the actual data structure.
 
-Since a list is a list of pairs, many list operations can be programmed as a recursive procedures:
+Since a list is a list of pairs, many list operations can be programmed as recursive procedures:
 
 ```scheme
 (define (list-ref items n)
@@ -67,7 +67,7 @@ Since a list is a list of pairs, many list operations can be programmed as a rec
     (+ 1 (length (cdr items)))))
 ```
 
-Another common technique is to "`cons` up" an answer list while `cdr`ing down a list:
+Another common technique is to "`cons` up" an answer list while `cdr`ing down a list (construct up, tails down):
 
 ```scheme
 (define (append list1 list2)
@@ -98,6 +98,30 @@ which would result the following execution:
 
 ```
 
+One of the most common operations is to apply a transformation to each element in a list and then generate a list of results. This higher order procedure is called a **map**.
+
+```scheme
+(define (map proc items)
+  (if (null? items)
+    nil
+    (cons (proc (car items))
+      (map proc (cdr items)))))
+```
+
+```elixir
+defmodule EnumMap do
+  def map(_proc, []), do: []
+
+  def map(proc, [head | tail]) do
+    [proc.(head) | map(proc, tail)]
+  end
+end
+
+EnumMap.map(fn x -> x + 1 end, [1, 2, 3, 4])
+```
+
+You could write a procedure that applies map logic itself or calls `map` under the hood. In either case, the difference is not the computer applying a different process. It is applying the same process. However, it makes us *think* about the process differently. `map` establishes an abstraction barrier that isolates the implementation of procedures that transform lists from the details of how the elements of the list are extracted and combined.
+
 ## Exercises
 
 ### Exercise 2.17
@@ -113,15 +137,13 @@ Lambda solution:
 
 ```elixir
 last_pair = fn list, f ->
-  [head | tail] = list
-
-  case tail do
-    [] -> head
-    _ -> f.(tail, f)
+  case list do
+    [head | []] -> [head]
+    [_ | tail] -> f.(tail, f)
   end
 end
 
-last_pair.([23, 72, 149, 34], last_pair)
+IO.inspect(last_pair.([23, 72, 149, 34], last_pair), charlists: :as_lists)
 ```
 
 Module solution:
@@ -129,7 +151,7 @@ Module solution:
 ```elixir
 defmodule LastPair do
   def last_pair([head | []]) do
-    head
+    [head]
   end
 
   def last_pair([_ | tail]) do
@@ -137,7 +159,7 @@ defmodule LastPair do
   end
 end
 
-LastPair.last_pair([23, 72, 149, 34])
+IO.inspect(LastPair.last_pair([23, 72, 149, 34]), charlists: :as_lists)
 ```
 
 ### Exercise 2.18
@@ -146,36 +168,97 @@ LastPair.last_pair([23, 72, 149, 34])
 
 <!-- livebook:{"break_markdown":true} -->
 
+One thing to note up front. Since the order of the list is different than the original list, I will need to add an accumulator to track my new list so that it can be used in list operations. Otherwise I would need to append lists which is less ideal.
+
 Lambda solution:
 
 ```elixir
 reverse = fn list, f ->
-  [head | tail] = list
-
-  case tail do
-    [] -> [head]
-    _ -> f.(tail, f) ++ [head]
+  case list do
+    [head | []] -> [head]
+    # appending!
+    [head | tail] -> f.(tail, f) ++ [head]
   end
 end
 
 reverse.([1, 2, 3, 4, 5], reverse)
 ```
 
+```elixir
+reverse_acc = fn list, acc, f ->
+  case list do
+    [] -> acc
+    # no appending!
+    [head | tail] -> f.(tail, [head | acc], f)
+  end
+end
+
+reverse_acc.([1, 2, 3, 4, 5], [], reverse_acc)
+```
+
 Module solution:
 
 ```elixir
-defmodule Reverse do
-  def reverse([head | []]) do
-    [head]
-  end
+defmodule ReverseWithAppending do
+  def reverse([]), do: []
 
   def reverse([head | tail]) do
     reverse(tail) ++ [head]
   end
 end
 
-Reverse.reverse([1, 2, 3, 4, 5])
+ReverseWithAppending.reverse([1, 2, 3, 4, 5])
 ```
+
+The above works, but results in the following process:
+
+```
+Initial list: [1, 2, 3, 4, 5]
+
+Step 1: reverse([2, 3, 4, 5]) ++ [1]
+Step 2: (reverse([3, 4, 5]) ++ [2]) ++ [1]
+Step 3: ((reverse([4, 5]) ++ [3]) ++ [2]) ++ [1]
+Step 4: (((reverse([5]) ++ [4]) ++ [3]) ++ [2]) ++ [1]
+Step 5: ((((reverse([]) ++ [5]) ++ [4]) ++ [3]) ++ [2]) ++ [1]
+Step 6: ((([5] ++ [4]) ++ [3]) ++ [2]) ++ [1]
+Step 7: (([5, 4] ++ [3]) ++ [2]) ++ [1]
+Step 8: ([5, 4, 3] ++ [2]) ++ [1]
+Step 9: [5, 4, 3, 2] ++ [1]
+Step 10: [5, 4, 3, 2, 1]
+
+Final list: [5, 4, 3, 2, 1]
+```
+
+```elixir
+defmodule ReverseWithAccumulator do
+  def reverse(list), do: do_reverse(list, [])
+
+  defp do_reverse([], acc), do: acc
+
+  defp do_reverse([head | tail], acc) do
+    do_reverse(tail, [head | acc])
+  end
+end
+
+ReverseWithAccumulator.reverse([1, 2, 3, 4, 5])
+```
+
+The accumulator allows for the operation to be achieved on a single pass:
+
+```
+Initial list: [1, 2, 3, 4, 5]
+Accumulator: []
+
+Step 1: do_reverse([2, 3, 4, 5], [1])
+Step 2: do_reverse([3, 4, 5], [2, 1])
+Step 3: do_reverse([4, 5], [3, 2, 1])
+Step 4: do_reverse([5], [4, 3, 2, 1])
+Step 5: do_reverse([], [5, 4, 3, 2, 1])
+
+Final list: [5, 4, 3, 2, 1]
+```
+
+<!-- livebook:{"break_markdown":true} -->
 
 ### Exercise 2.20
 
@@ -212,4 +295,42 @@ defmodule Parity do
 end
 
 Parity.same_parity([1, 2, 3, 4, 5, 6, 7])
+```
+
+### Exercise 2.21
+
+> The procedure square-list takes a list of numbers as argument and returns a list of the squares of those numbers.
+> 
+> ```scheme
+> (square-list (list 1 2 3 4))
+> (1 4 9 16)
+> ```
+> 
+> Here are two different definitions of square-list. Complete both of them by filling in the missing expressions:
+> 
+> ```scheme
+> (define (square-list items) (if (null? items) nil (cons ⟨??⟩ ⟨??⟩)))
+> ```
+> 
+> &
+> 
+> ```scheme
+> (define (square-list items) (map ⟨??⟩ ⟨??⟩))
+> ```
+
+```elixir
+defmodule SquareList do
+  def square_list([]), do: []
+  def square_list([head | tail]), do: [head * head | square_list(tail)]
+end
+
+SquareList.square_list([2, 3, 4, 5])
+```
+
+```elixir
+square_list = fn items ->
+  Enum.map(items, fn x -> x * x end)
+end
+
+square_list.([2, 3, 4, 5])
 ```
