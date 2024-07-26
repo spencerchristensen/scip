@@ -122,215 +122,198 @@ EnumMap.map(fn x -> x + 1 end, [1, 2, 3, 4])
 
 You could write a procedure that applies map logic itself or calls `map` under the hood. In either case, the difference is not the computer applying a different process. It is applying the same process. However, it makes us *think* about the process differently. `map` establishes an abstraction barrier that isolates the implementation of procedures that transform lists from the details of how the elements of the list are extracted and combined.
 
-## Exercises
-
-### Exercise 2.17
-
-> Define a procedure `last-pair` that returns the list that contains only the last element of a given (nonempty) list:
-> `(last-paid (list 23 72 149 34))`
-> 
-> *(34)*
-
-<!-- livebook:{"break_markdown":true} -->
-
-Lambda solution:
+We can transform this into an iterative process and apply tail call optimization by using an accumulator.
 
 ```elixir
-last_pair = fn list, f ->
-  case list do
-    [head | []] -> [head]
-    [_ | tail] -> f.(tail, f)
+defmodule EnumMapTail do
+  def map(proc, list) do
+    run_map(proc, list, [])
+  end
+
+  defp run_map(_proc, [], acc), do: Enum.reverse(acc)
+
+  defp run_map(proc, [head | tail], acc) do
+    run_map(proc, tail, [proc.(head) | acc])
   end
 end
 
-IO.inspect(last_pair.([23, 72, 149, 34], last_pair), charlists: :as_lists)
+EnumMapTail.map(fn x -> x + 1 end, [1, 2, 3, 4])
 ```
 
-Module solution:
+## 2.2.2 Hierarchical Structures
 
-```elixir
-defmodule LastPair do
-  def last_pair([head | []]) do
-    [head]
-  end
+We can generalize sequences whose elements may themselves be sequences. For example, we can construct the object `((1 2) 3 4)` by:
 
-  def last_pair([_ | tail]) do
-    last_pair(tail)
-  end
-end
-
-IO.inspect(LastPair.last_pair([23, 72, 149, 34]), charlists: :as_lists)
+```scheme
+(cons (list 1 2) (list 3 4))
 ```
 
-### Exercise 2.18
+Sequences whose elements are sequences can be thought of as *trees*. Recursion is a natural tool for dealing with tree structures as can reduce operations on trees to operations on their branches, which reduce in turn to operations onf the branches of the branches, and so on, until we reach the leaves of the tree.
 
-> Define a procedure `reverse` that takes a list as argument and returns a list of the same elements in reverse order.
+```scheme
+(define x (cons (list 1 2) (list 3 4)))
 
-<!-- livebook:{"break_markdown":true} -->
+(length x)
+; 3
 
-One thing to note up front. Since the order of the list is different than the original list, I will need to add an accumulator to track my new list so that it can be used in list operations. Otherwise I would need to append lists which is less ideal.
-
-Lambda solution:
-
-```elixir
-reverse = fn list, f ->
-  case list do
-    [head | []] -> [head]
-    # appending!
-    [head | tail] -> f.(tail, f) ++ [head]
-  end
-end
-
-reverse.([1, 2, 3, 4, 5], reverse)
+(count-leaves x)
+; 4
 ```
 
+Let's lay out some logic:
+
+`length`
+
+* the length of a list `x` is 1 plus the length of the `cdr` of `x`
+* the length of an empty list is 0
+
+`count-leaves`
+
+* the count of an empty list is 0
+  * in the reduction step, where we strip off the `car` of the list, we must take into account that the `car` may itself be a tree
+* the count of a tree `x` is:
+  * the `count-leaves` of the `car` of `x`
+  * `+`
+  * the`count-leaves` of the `cdr` of `x`
+* the count of a leaf is 1
+
 ```elixir
-reverse_acc = fn list, acc, f ->
-  case list do
-    [] -> acc
-    # no appending!
-    [head | tail] -> f.(tail, [head | acc], f)
+# Hmmm...my first pass used the `head | tail` matching that I am used to
+# however, this never matched against a leaf directly and thus required 
+# three invocations of `count_leaves`
+defmodule CountLeaves do
+  def count_leaves([]) do
+    0
   end
-end
 
-reverse_acc.([1, 2, 3, 4, 5], [], reverse_acc)
-```
+  def count_leaves([head | tail]) when is_list(head) do
+    count_leaves(head) + count_leaves(tail)
+  end
 
-Module solution:
-
-```elixir
-defmodule ReverseWithAppending do
-  def reverse([]), do: []
-
-  def reverse([head | tail]) do
-    reverse(tail) ++ [head]
+  def count_leaves([_head | tail]) do
+    1 + count_leaves(tail)
   end
 end
 
-ReverseWithAppending.reverse([1, 2, 3, 4, 5])
+IO.puts(CountLeaves.count_leaves([1, 2, 3, 4, 5]))
+IO.puts(CountLeaves.count_leaves([[1, 2], [3, 4, 5]]))
+IO.puts(CountLeaves.count_leaves([1, [2, [3, 4, 5, 6], 7, [8, 9], 10], 11]))
+
+# I can match specifically to SCIP's logic by matching against a (potential) leaf
+# and not simply falling back on a `head | tail` match 
+defmodule CountLeavesLisp do
+  def count_leaves([]), do: 0
+
+  def count_leaves([head | tail] = x) when is_list(x) do
+    count_leaves(head) + count_leaves(tail)
+  end
+
+  def count_leaves(_), do: 1
+end
+
+IO.puts(CountLeavesLisp.count_leaves([1, 2, 3, 4, 5]))
+IO.puts(CountLeavesLisp.count_leaves([[1, 2], [3, 4, 5]]))
+IO.puts(CountLeavesLisp.count_leaves([1, [2, [3, 4, 5, 6], 7, [8, 9], 10], 11]))
 ```
 
-The above works, but results in the following process:
+## 2.2.3 Sequences as Conventional Interfaces
 
-```
-Initial list: [1, 2, 3, 4, 5]
+Processes can often be broken down into distinct operations, so much so that a signal-processing engineer would find it natural to conceptualize these processes in terms of signals flowing through a cascade of stages. However procedures will often decompose the computations in different ways so that the enumeration is spread over the program, mingled here and there with operations such as map, filter, and accumulation. While two procedures may under the hood use the same fundamental concepts of maps, filters, and accumulation the actual implementation will obscure their similarity.
 
-Step 1: reverse([2, 3, 4, 5]) ++ [1]
-Step 2: (reverse([3, 4, 5]) ++ [2]) ++ [1]
-Step 3: ((reverse([4, 5]) ++ [3]) ++ [2]) ++ [1]
-Step 4: (((reverse([5]) ++ [4]) ++ [3]) ++ [2]) ++ [1]
-Step 5: ((((reverse([]) ++ [5]) ++ [4]) ++ [3]) ++ [2]) ++ [1]
-Step 6: ((([5] ++ [4]) ++ [3]) ++ [2]) ++ [1]
-Step 7: (([5, 4] ++ [3]) ++ [2]) ++ [1]
-Step 8: ([5, 4, 3] ++ [2]) ++ [1]
-Step 9: [5, 4, 3, 2] ++ [1]
-Step 10: [5, 4, 3, 2, 1]
-
-Final list: [5, 4, 3, 2, 1]
-```
+Consider the following implementation of summing the odd numbers in a sequence:
 
 ```elixir
-defmodule ReverseWithAccumulator do
-  def reverse(list), do: do_reverse(list, [])
+import Integer
 
-  defp do_reverse([], acc), do: acc
+defmodule SumOddSquares do
+  def perform(tree) do
+    case tree do
+      [] ->
+        0
 
-  defp do_reverse([head | tail], acc) do
-    do_reverse(tail, [head | acc])
+      val when is_integer(val) ->
+        if Integer.is_odd(val) do
+          val * val
+        else
+          0
+        end
+
+      [head | tail] ->
+        perform(head) + perform(tail)
+    end
   end
 end
 
-ReverseWithAccumulator.reverse([1, 2, 3, 4, 5])
+SumOddSquares.perform([1, 2, 3, 4, 5])
 ```
 
-The accumulator allows for the operation to be achieved on a single pass:
+There is quite a lot going on: matching, filtering, accumulation. These are very common operations, but they are obscured by being spread out in ways specific to this operation.
 
-```
-Initial list: [1, 2, 3, 4, 5]
-Accumulator: []
+The key to organizing programs so as to more clearly reflect the signal-flow structure is to concentrate on the "signals" that flow from one stage in the process to the next.
 
-Step 1: do_reverse([2, 3, 4, 5], [1])
-Step 2: do_reverse([3, 4, 5], [2, 1])
-Step 3: do_reverse([4, 5], [3, 2, 1])
-Step 4: do_reverse([5], [4, 3, 2, 1])
-Step 5: do_reverse([], [5, 4, 3, 2, 1])
+If we represent these signals as lists, then we can use list operations to implement the processing at each of the stages.
 
-Final list: [5, 4, 3, 2, 1]
-```
-
-<!-- livebook:{"break_markdown":true} -->
-
-### Exercise 2.20
-
-> Use dot notation to write a procedure `same-parity` that takes one or more integers and returns a list of all the arguments that have the same even-odd parity as the first argument.
-
-<!-- livebook:{"break_markdown":true} -->
-
-Elixir does not have variadic functions, making this a little different.
-
-Lambda solution:
+Let's define `filter`, `accumulate`, and `enumerate_tree` operations that expect a list:
 
 ```elixir
-require Integer
+defmodule Operations do
+  def filter(sequence, predicate) do
+    case sequence do
+      [] ->
+        []
 
-same_parity = fn [head | tail] ->
-  parity_fn = if Integer.is_even(head), do: &Integer.is_even/1, else: &Integer.is_odd/1
-  [head | Enum.filter(tail, parity_fn)]
-end
-
-same_parity.([1, 2, 3, 4, 5, 6, 7])
-```
-
-Module solution:
-
-```elixir
-defmodule Parity do
-  def same_parity([head | tail]) when Integer.is_even(head) do
-    [head | Enum.filter(tail, &Integer.is_even/1)]
+      [head | tail] ->
+        case predicate.(head) do
+          true -> [head | filter(tail, predicate)]
+          false -> filter(tail, predicate)
+        end
+    end
   end
 
-  def same_parity([head | tail]) when Integer.is_odd(head) do
-    [head | Enum.filter(tail, &Integer.is_odd/1)]
+  def accumulate(sequence, operation, initial) do
+    case sequence do
+      [] ->
+        initial
+
+      [head | tail] ->
+        operation.(head, accumulate(tail, operation, initial))
+    end
+  end
+
+  def enumerate_tree(sequence) do
+    case sequence do
+      [] ->
+        []
+
+      [head | tail] when is_list(head) ->
+        enumerate_tree(head) ++ enumerate_tree(tail)
+
+      [head | tail] ->
+        [head | enumerate_tree(tail)]
+    end
   end
 end
 
-Parity.same_parity([1, 2, 3, 4, 5, 6, 7])
+Operations.filter([1, 2, 3, 4, 5], &Integer.is_odd/1)
+# Operations.accumulate([1, 2, 3, 4, 5], &+/2, 0)
+# Operations.enumerate_tree([1, [2, 3], [4, [5]]])
 ```
 
-### Exercise 2.21
-
-> The procedure square-list takes a list of numbers as argument and returns a list of the squares of those numbers.
-> 
-> ```scheme
-> (square-list (list 1 2 3 4))
-> (1 4 9 16)
-> ```
-> 
-> Here are two different definitions of square-list. Complete both of them by filling in the missing expressions:
-> 
-> ```scheme
-> (define (square-list items) (if (null? items) nil (cons ⟨??⟩ ⟨??⟩)))
-> ```
-> 
-> &
-> 
-> ```scheme
-> (define (square-list items) (map ⟨??⟩ ⟨??⟩))
-> ```
+Now we can express the original `SumOddSquares` as sequence operations:
 
 ```elixir
-defmodule SquareList do
-  def square_list([]), do: []
-  def square_list([head | tail]), do: [head * head | square_list(tail)]
+defmodule BetterSumOddSquares do
+  def perform(sequence) do
+    sequence
+    |> Operations.enumerate_tree()
+    |> Operations.filter(&Integer.is_odd/1)
+    |> Enum.map(fn x -> x * x end)
+    |> Operations.accumulate(&+/2, 0)
+  end
 end
 
-SquareList.square_list([2, 3, 4, 5])
+BetterSumOddSquares.perform([1, [2, 3], [4, [5]]])
 ```
 
-```elixir
-square_list = fn items ->
-  Enum.map(items, fn x -> x * x end)
-end
+The value of expressing programs as sequence operations is that this helps us make program designs that are modular, that is, designs that are constructued by combining relatively independent pieces. Modular construction is a powerful strategy for controlling complexity in engineering design.
 
-square_list.([2, 3, 4, 5])
-```
