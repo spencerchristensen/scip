@@ -1,0 +1,323 @@
+# 1.1 Exercises
+
+```elixir
+Mix.install([])
+```
+
+## Exercise 1.3
+
+Define a procedure that takes three numbers as arguments and returns the sum of the squares of the two larger numbers.
+
+```elixir
+defmodule SquareSum do
+  def square(x) do
+    x * x
+  end
+
+  def sum_of_squares(x, y) do
+    square(x) + square(y)
+  end
+
+  def evalLargerTwo(x, y, z) do
+    cond do
+      # Note this cumbersome logic finds the two largest by 
+      # laying out the order of all three params
+      # Unnecessary! 
+      # Ask: 
+      #  - what is the question the function is answering?
+      #  - what is the minimal amount of information required to answer?
+      # 
+      # x >= y and y >= z -> sum_of_squares(x, y)
+      # y >= z and z >= x -> sum_of_squares(y, z)
+      # z >= y and z >= x -> sum_of_squares(y, z)
+
+      # Note cleaner logic only finds the smallest, not the order
+      z <= x and z <= y -> sum_of_squares(x, y)
+      x <= y and x <= z -> sum_of_squares(y, z)
+      true -> sum_of_squares(x, z)
+    end
+  end
+end
+
+IO.puts(
+  "Test 1, 2, 3: " <>
+    to_string(SquareSum.evalLargerTwo(1, 2, 3) == SquareSum.sum_of_squares(2, 3))
+)
+
+IO.puts(
+  "Test 3, 1, 2: " <>
+    to_string(SquareSum.evalLargerTwo(3, 1, 2) == SquareSum.sum_of_squares(2, 3))
+)
+
+IO.puts(
+  "Test 3, 2, 1: " <>
+    to_string(SquareSum.evalLargerTwo(3, 2, 1) == SquareSum.sum_of_squares(2, 3))
+)
+
+IO.puts(
+  "Test 5, 5, 5: " <>
+    to_string(SquareSum.evalLargerTwo(5, 5, 5) == SquareSum.sum_of_squares(5, 5))
+)
+```
+
+## Exercise 1.5
+
+```scheme
+(define (p) (p))
+
+(define (test x y)
+  (if (= x 0)
+    0
+    y))
+
+(test 0 (p))
+```
+
+*What behavior will one observe with an interpreter that uses applicative-order evaluation?*
+
+Given that AOE stipulates "eval, then apply", this will result in an infinite loop:
+
+* `0` will eval to `0`
+* `(p)` will eval to `(p)`
+* `(p)` will eval to `(p)`...
+
+*What behavior will one observe with an interpreter that uses normal-order evaluation?*
+
+Given that NOE stipulates "expand, then reduce", this will result in:
+
+* `(text 0 (p))`
+* `(if (= 0 0) 0 (p))`
+* `(= 0 0)` will be hit and evaluation will trigger, yielding the consequent `0`
+
+```elixir
+defmodule RecursiveDanger do
+  def p do
+    p()
+  end
+
+  def test(x, y) do
+    if x == 0 do
+      0
+    else
+      y.()
+    end
+  end
+end
+
+defmodule RecursiveInfinite do
+  def p do
+    p()
+  end
+
+  def test(x, y) do
+    if x == 0 do
+      0
+    else
+      y
+    end
+  end
+end
+
+# in Elixir, I tell it when to eval a function and thus
+# have control over whether to invoke a loop:
+# conditionally:
+# RecursiveDanger.test(0, fn -> RecursiveInfinite.p() end)
+# on purpose:
+# RecursiveInfinite.test(0, RecursiveDanger.p())
+```
+
+## Exercise 1.6
+
+Let's say you define your own `if` function:
+
+```scheme
+(define (new-if predicate
+                then-clause
+                else-clause)
+  (cond (predicate then-clause)
+        (else else-clause)))
+
+```
+
+It works with primitive arguments:
+
+```scheme
+(new-if (= 2 3) 0 5)
+```
+
+*What will happen when you use it with complex expressions?*
+
+```scheme
+(define (sqrt-iter guess x)
+  (new-if (good-enough? guess x)
+          guess
+          (sqrt-iter (improve guess x) x)))
+```
+
+The parameter subexpressions will be evaluated before the procedure body itself is evaluated as `new-if` is a function.
+
+<!-- livebook:{"break_markdown":true} -->
+
+
+
+## Exercise 1.7
+
+Newton's method for computing square roots says that whenever we have a guess *y* for the value of the square root of a number *x*, we can compute a better guess by averaging *y* with *x/y*.
+
+i.e. divide the number (the radicand) by the guess, and then average the quotient and the guess
+
+If `x = 2` and we guess `y = 1`, then we have:
+
+"divide the radicand by the guess"
+
+`y/x` => `2/1 = 2`
+
+"average the quotient and the guess"
+
+`q + y/2` => `(2 + 1) / 2 = 1.5`
+
+We can then define a recursive function that successively calls this guessing function until a number that is sufficiently close to a predetermined tolerance is found. The text suggests a basic `good-enough?` test:
+
+```scheme
+(define (good-enough? guess x) 
+  (< (abs (- (square guess) x)) 0.0001))
+```
+
+<!-- livebook:{"break_markdown":true} -->
+
+*Why is `good-enough` insufficient for very small and very large numbers?*
+
+First let's define a module with the existing logic:
+
+```elixir
+defmodule NewtonSqrt do
+  def average(x, y) do
+    (x + y) / 2
+  end
+
+  def improve(radicand, guess) do
+    average(guess, radicand / guess)
+  end
+
+  def good_enough(radicand, guess) do
+    abs(guess * guess - radicand) < 0.0001
+  end
+
+  def sqrt_iter(radicand, guess) do
+    if good_enough(radicand, guess) do
+      IO.puts("Good: " <> to_string(guess))
+      guess
+    else
+      IO.puts("Not Good: " <> to_string(guess))
+      sqrt_iter(radicand, improve(radicand, guess))
+    end
+  end
+
+  def sqrt(radicand) do
+    sqrt_iter(radicand, 1)
+  end
+end
+```
+
+Let's do a basic test:
+
+```elixir
+NewtonSqrt.sqrt(16)
+```
+
+Now let's try a very small number:
+
+```elixir
+NewtonSqrt.sqrt(0.0000009876)
+```
+
+This is not correct. The initial `good_enough` function defines a tolerance of 0.0001. However the radicand in this case is smaller than the tolerance. Therefore the guess cannot, by definition, measure the correctness of the guess.
+
+Now let's try a very large number:
+
+```elixir
+# Commenting out inifinite loop so livebook can eval
+# NewtonSqrt.sqrt(1929472300180183)
+# 43925758.9596376...
+# 43925758.9596376...
+```
+
+We can see here that we are getting stuck in an infinite loop when the guess hits `43925758.9596376`. What's happening with `good_enough` on this number? Is it less than `0.0001`?
+
+```elixir
+abs(43_925_758.9596376 * 43_925_758.9596376 - 1_929_472_300_180_183)
+```
+
+It is not. Let's `improve` the guess:
+
+```elixir
+NewtonSqrt.average(43_925_758.9596376, 1_929_472_300_180_183 / 43_925_758.9596376)
+```
+
+Wait a minute! The improved guess is the same as the old one!
+
+What we are witnessing here is a result of floating point rounding errors. Specifically we have reached the range in which the distance between two floating points are beyond the size of `0.001`. The rounding error, the minimum precision, is greater than the specified tolerance.
+
+<!-- livebook:{"break_markdown":true} -->
+
+*An alternative would be to watch how `guess` changes from one iteration to the next and stop when the change is a very small fraction of the guess. Design a square root function that uses this sort of test.*
+
+```elixir
+defmodule BetterNewtonSqrt do
+  def average(x, y) do
+    (x + y) / 2
+  end
+
+  def improve(radicand, guess) do
+    average(guess, radicand / guess)
+  end
+
+  def good_enough(previous_guess, guess) when is_integer(previous_guess) and is_integer(guess) do
+    previous_guess == guess
+  end
+
+  def good_enough(previous_guess, guess) when is_float(previous_guess) and is_integer(guess) do
+    guess = guess / 1.0
+    good_enough(previous_guess, guess)
+  end
+
+  def good_enough(previous_guess, guess) when is_integer(previous_guess) and is_float(guess) do
+    previous_guess = previous_guess / 1.0
+    good_enough(previous_guess, guess)
+  end
+
+  def good_enough(previous_guess, guess)
+      when is_float(previous_guess) and is_float(guess) and guess <= 1 do
+    :erlang.float_to_binary(previous_guess, decimals: 253) ==
+      :erlang.float_to_binary(guess, decimals: 253)
+  end
+
+  def good_enough(previous_guess, guess)
+      when is_float(previous_guess) and is_float(guess) and guess > 1 do
+    :erlang.float_to_binary(previous_guess, decimals: 6) ==
+      :erlang.float_to_binary(guess, decimals: 6)
+  end
+
+  def sqrt_iter(radicand, guess) do
+    if good_enough(guess, improve(radicand, guess)) do
+      IO.puts("Good: " <> to_string(guess))
+      guess
+    else
+      IO.puts("Not Good: " <> to_string(guess))
+      sqrt_iter(radicand, improve(radicand, guess))
+    end
+  end
+
+  def sqrt(radicand) do
+    sqrt_iter(radicand, 1)
+  end
+end
+```
+
+```elixir
+BetterNewtonSqrt.sqrt(1_929_472_300_180_183)
+```
+
+```elixir
+BetterNewtonSqrt.sqrt(0.0000009876)
+```

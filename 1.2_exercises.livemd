@@ -1,0 +1,178 @@
+# 1.2 Exercises
+
+```elixir
+Mix.install([])
+```
+
+## Exercise 1.9
+
+*Depict and describe the procedures and their corresponding processes.*
+
+Procedure A is a recursive procedure in that it invokes itself.
+
+```scheme
+(define (+ a b)
+  (if (= a 0)
+  b
+  (inc (+ (dec a) b))))
+```
+
+Process A is a linear recursive process. You will note that `inc` evaluations are chained together until the conditional is fulfulled.
+
+```scheme
+(+ 5 5)
+(inc ( + 4 5 ))
+(inc ( inc ( + 3 5)))
+(inc ( inc ( inc (+ 2 5))))
+(inc ( inc ( inc (inc (+ 1 5)))))
+(inc ( inc ( inc (inc (inc (+ 0 5))))))
+(inc ( inc ( inc (inc (inc 5)))))
+(inc ( inc ( inc (inc 6))))
+(inc ( inc ( inc 7)))
+(inc ( inc 8))
+(inc 9)
+(10)
+```
+
+Procedure B is a recursive procedure in that it invokes itself.
+
+```scheme
+(define (+ a b)
+  (if (= a 0)
+  b
+  + (dec a) (inc b)))
+```
+
+Process B is a linear iterative process. While it invokes itself, it is deferring no evaluation and is instead tracking a variable state through the iterations.
+
+```scheme
+(+ 5 5)
+(+ 4 6)
+(+ 3 7)
+(+ 2 8)
+(+ 1 9)
+(+ 0 10)
+(10)
+```
+
+<!-- livebook:{"break_markdown":true} -->
+
+## Exercise 1.10
+
+*The following procedure computes a mathematical function called Ackermann's function.*
+
+```scheme
+(define (A x y)
+  (cond ((= y 0) 0)
+        ((= x 0) (* 2 y))
+        ((= y 1) 2)
+        (else (A (- x 1)
+                 (A x (- y 1))))))
+```
+
+*What are the values of the following expressions:*
+
+```scheme
+(A 1 10)
+(A 2 4)
+(A 3 3)
+```
+
+Each of these will be a linear recursive process, as the `y` param will defer evaluation of `x` until `y = 1` at which point `x` will evaluate and, if not 0, prompt another chain of deferred evaluations of itself as `y` is invoked again until 1.
+
+<!-- livebook:{"break_markdown":true} -->
+
+## Exercise 1.17
+
+*Devise a logarithmic alternative to this linear recursive procedure using `double` and `halve` procedures:*
+
+```scheme
+(define (* a b)
+  (if (= b 0)
+      0
+      (+ a (* a (- b 1)))))
+```
+
+```elixir
+defmodule MultiplyRecursive do
+  defp print_step(a, b), do: IO.puts("Step: (" <> to_string(a) <> ", " <> to_string(b) <> ")")
+
+  defp double(n), do: n * 2
+
+  defp halve(n), do: div(n, 2)
+
+  def mult_log(a, b) when b == 0 do
+    print_step(a, b)
+    0
+  end
+
+  def mult_log(a, b) when rem(b, 2) == 0 do
+    print_step(a, b)
+    mult_log(double(a), halve(b))
+  end
+
+  def mult_log(a, b) do
+    print_step(a, b)
+    a + mult_log(a, b - 1)
+  end
+
+  def mult_lin(a, b) when b == 0 do
+    print_step(a, b)
+    0
+  end
+
+  def mult_lin(a, b) do
+    print_step(a, b)
+    a + mult_lin(a, b - 1)
+  end
+end
+```
+
+```elixir
+IO.puts("Linear Multiplication")
+MultiplyRecursive.mult_lin(12, 14)
+```
+
+```elixir
+IO.puts("Logarithmic Multiplication")
+MultiplyRecursive.mult_log(12, 14)
+```
+
+## Exercise 1.18
+
+*Make an iterative version of the logarithmic multiply procedure.*
+
+```elixir
+defmodule MultIterLogarithmic do
+  defp print_step(a, b, acc),
+    do:
+      IO.puts("Step: (" <> to_string(a) <> ", " <> to_string(b) <> ", " <> to_string(acc) <> ")")
+
+  defp double(n), do: n * 2
+  defp halve(n), do: div(n, 2)
+
+  def mult_iter(a, b) do
+    mult_iter_loop(a, b, 0)
+  end
+
+  defp mult_iter_loop(a, 0, acc) do
+    print_step(a, 0, acc)
+    acc
+  end
+
+  defp mult_iter_loop(a, b, acc) when rem(b, 2) == 0 do
+    print_step(a, b, acc)
+    mult_iter_loop(double(a), halve(b), acc)
+  end
+
+  defp mult_iter_loop(a, b, acc) do
+    print_step(a, b, acc)
+    mult_iter_loop(a, b - 1, acc + a)
+  end
+end
+```
+
+```elixir
+IO.puts("Iterative Logarithmic")
+MultIterLogarithmic.mult_iter(12, 14)
+```

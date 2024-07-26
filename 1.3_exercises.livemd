@@ -1,0 +1,138 @@
+# Exercises
+
+```elixir
+Mix.install([])
+```
+
+## Exercise 1.41
+
+> Define a procedure `double` that takes a procedure of one argument as argument and returns a procedure that applies the original procedure twice.
+
+Let's first achieve this with a lambda. I will then solve this using modules, one with a Linear Recursive Process and another with a Linear Iterative Process.
+
+```elixir
+inc = fn x ->
+  x + 1
+end
+
+double = fn f ->
+  fn x ->
+    x
+    |> f.()
+    |> f.()
+  end
+end
+
+IO.puts(double.(inc).(5))
+IO.puts(double.(double.(double)).(inc).(5))
+```
+
+```elixir
+defmodule LinearRecursiveDouble do
+  def double(fun) do
+    fn x -> apply_n_times(fun, 2, x) end
+  end
+
+  defp apply_n_times(_fun, 0, x) do
+    x
+  end
+
+  defp apply_n_times(fun, n, x) do
+    fun.(apply_n_times(fun, n - 1, x))
+  end
+end
+
+defmodule LinearIterativeDouble do
+  def double(fun) do
+    fn x -> apply_n_times(fun, 2, x) end
+  end
+
+  defp apply_n_times(_fun, 0, x) do
+    x
+  end
+
+  defp apply_n_times(fun, n, x) do
+    apply_n_times(fun, n - 1, fun.(x))
+  end
+end
+
+IO.puts(LinearRecursiveDouble.double(inc).(5))
+IO.puts(LinearIterativeDouble.double(inc).(5))
+```
+
+## Exercise 1.42
+
+> Let $f$ and $g$ be two one-argument functions. The composition $f$ after $g$ is defined to be the function ${x\mapsto f(g(x))}$. Define a procedure compose that implements composition.
+
+```elixir
+square = fn x -> x * x end
+
+compose = fn f1, f2 ->
+  fn x ->
+    # f1.(f2.(x))
+    x
+    |> f2.()
+    |> f1.()
+  end
+end
+
+IO.puts(compose.(square, inc).(6))
+```
+
+## Exercise 1.43
+
+> If $f$ is a numerical function and $n$ is a positive integer, then we can form the $n^{\text{th}}$ repeated application of $f$, which is defined to be the function whose value at $x$ is ${f(f(\dots(f(x))\dots))}$. For example, if $f$ is the function ${x\mapsto x+1}$, then the $n^{\text{th}}$ repeated application of f is the function ${x\mapsto x+n}$. Write a procedure that takes as inputs a procedure that computes $f$ and a positive integer $n$ and returns the procedure that computes the $n^{\text{th}}$ repeated application of f.
+
+Let's first solve this using linear recursive/iterative processes as I did above, but then add another variant that uses the `compose` logic.
+
+```elixir
+defmodule LinearRecursiveRepeat do
+  def repeat(fun, n) do
+    fn x ->
+      apply_n_times(fun, n, x)
+    end
+  end
+
+  def apply_n_times(_fun, 0, x) do
+    x
+  end
+
+  def apply_n_times(fun, n, x) do
+    fun.(apply_n_times(fun, n - 1, x))
+  end
+end
+
+defmodule LinearIterativeRepeat do
+  def repeat(fun, n) do
+    fn x ->
+      apply_n_times(fun, n, x)
+    end
+  end
+
+  def apply_n_times(_fun, 0, x) do
+    x
+  end
+
+  def apply_n_times(fun, n, x) do
+    apply_n_times(fun, n - 1, fun.(x))
+  end
+end
+
+defmodule ComposedRepetition do
+  def compose(f1, f2) do
+    fn x ->
+      x
+      |> f2.()
+      |> f1.()
+    end
+  end
+
+  def repeat(f, n) when n > 0 do
+    Enum.reduce(1..n, fn x -> x end, fn _, acc -> compose(acc, f) end)
+  end
+end
+
+IO.puts(LinearRecursiveRepeat.repeat(inc, 5).(5))
+IO.puts(LinearIterativeRepeat.repeat(inc, 5).(5))
+IO.puts(ComposedRepetition.repeat(inc, 5).(5))
+```
